@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        @font-face {
+            font-family: 'CustomFont';
+            src: url('assets/fonts/1papyrus.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+        
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: black;
+            transition: background-color 0.1s ease;
+        }
+        
+        a {
+            text-decoration: none;
+            font-size: 50px;
+            color: white;
+            padding: 10px 20px;
+            position: relative;
+            z-index: 10;
+            font-family: 'CustomFont', Arial, sans-serif;
+            transition: transform 0.05s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <a href="hello.html" id="helloBtn">Hello!</a>
+
+    <script>
+        const body = document.body;
+        const helloBtn = document.getElementById("helloBtn");
+        
+        // Получаем координаты кнопки
+        const btnRect = helloBtn.getBoundingClientRect();
+        const btnCenterX = btnRect.left + btnRect.width / 2;
+        const btnCenterY = btnRect.top + btnRect.height / 2;
+        
+        // Максимальное расстояние для покраснения
+        const MAX_DISTANCE = 300;
+        // Расстояние, на котором начинается дрожание
+        const SHAKE_START_DISTANCE = 200;
+        
+        // Таймер для плавного дрожания
+        let shakeTimer = null;
+        
+        document.addEventListener("mousemove", (e) => {
+            // Расстояние от курсора до центра кнопки
+            const distance = Math.sqrt(
+                Math.pow(e.clientX - btnCenterX, 2) + 
+                Math.pow(e.clientY - btnCenterY, 2)
+            );
+            
+            // Если курсор близко — делаем фон краснее
+            if (distance < MAX_DISTANCE) {
+                const redValue = Math.floor(255 * (1 - distance / MAX_DISTANCE));
+                body.style.backgroundColor = `rgb(${redValue}, 0, 0)`;
+                
+                // Если курсор в зоне дрожания
+                if (distance < SHAKE_START_DISTANCE) {
+                    // Интенсивность дрожания (0-1, где 1 — максимальная близость)
+                    const shakePower = 1 - (distance / SHAKE_START_DISTANCE);
+                    
+                    // Очищаем предыдущий таймер, чтобы избежать наложения анимаций
+                    if (shakeTimer) clearTimeout(shakeTimer);
+                    
+                    // Функция дрожания
+                    const shake = () => {
+                        // Случайное смещение (чем ближе курсор, тем сильнее тряска)
+                        const shakeX = (Math.random() - 0.5) * 10 * shakePower;
+                        const shakeY = (Math.random() - 0.5) * 10 * shakePower;
+                        
+                        helloBtn.style.transform = `translate(${shakeX}px, ${shakeY}px) scale(${1 + shakePower * 0.2})`;
+                        
+                        // Чем ближе курсор, тем быстрее обновляется анимация
+                        const shakeSpeed = 50 - (shakePower * 90); // от 10ms до 50ms
+                        shakeTimer = setTimeout(shake, shakeSpeed);
+                    };
+                    
+                    shake(); // Запускаем дрожание
+                } else {
+                    // Если курсор дальше зоны дрожания — останавливаем анимацию
+                    if (shakeTimer) clearTimeout(shakeTimer);
+                    helloBtn.style.transform = 'translate(0, 0) scale(1)';
+                }
+            } else {
+                // Если курсор далеко — возвращаем всё в исходное состояние
+                body.style.backgroundColor = "black";
+                if (shakeTimer) clearTimeout(shakeTimer);
+                helloBtn.style.transform = 'translate(0, 0) scale(1)';
+            }
+        });
+    </script>
+</body>
+</html>
