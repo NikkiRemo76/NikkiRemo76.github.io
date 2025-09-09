@@ -1,469 +1,153 @@
 <!DOCTYPE html>
-<html lang="ru">
-<head> 
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Многопользовательский кликер</title>
+<html>
+<head>
+    <title>Supabase Example</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        body {
-            background: linear-gradient(135deg, #6e8efb, #a777e3);
-            color: #333;
-            min-height: 100vh;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        
-        .container {
-            max-width: 1000px;
-            width: 100%;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 15px;
-            padding: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        }
-        
-        header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        
-        h1 {
-            color: #2c3e50;
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-        }
-        
-        .game-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin-bottom: 30px;
-        }
-        
-        .click-area {
-            width: 200px;
-            height: 200px;
-            background: #e74c3c;
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            margin-bottom: 20px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-            transition: transform 0.1s;
-            user-select: none;
-        }
-        
-        .click-area:active {
-            transform: scale(0.95);
-        }
-        
-        .click-text {
-            color: white;
-            font-size: 1.5rem;
-            font-weight: bold;
-        }
-        
-        .score-container {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        
-        .score {
-            font-size: 2rem;
-            font-weight: bold;
-            color: #2c3e50;
-        }
-        
-        .player-info {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 20px;
-            gap: 10px;
-        }
-        
-        input, button {
+        button {
+            margin: 5px;
             padding: 10px 15px;
+            background: #4CAF50;
+            color: white;
             border: none;
             border-radius: 5px;
-            font-size: 1rem;
-        }
-        
-        input {
-            border: 1px solid #ddd;
-            width: 200px;
-        }
-        
-        button {
-            background: #2ecc71;
-            color: white;
             cursor: pointer;
-            transition: background 0.3s;
         }
-        
         button:hover {
-            background: #27ae60;
+            background: #45a049;
         }
-        
-        .leaderboard {
-            width: 100%;
-            margin-top: 20px;
-        }
-        
-        .leaderboard h2 {
-            text-align: center;
-            margin-bottom: 15px;
-            color: #2c3e50;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
+        .user-item {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
             border-radius: 5px;
-            overflow: hidden;
         }
-        
-        th, td {
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
+        .banana-btn {
+            background: #FFD700;
+            color: black;
         }
-        
-        th {
-            background: #3498db;
-            color: white;
-        }
-        
-        tr:nth-child(even) {
-            background: #f9f9f9;
-        }
-        
-        tr:hover {
-            background: #f1f1f1;
-        }
-        
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 15px;
-            background: #2ecc71;
-            color: white;
-            border-radius: 5px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-            transform: translateX(100%);
-            transition: transform 0.3s;
-            z-index: 1000;
-        }
-        
-        .notification.show {
-            transform: translateX(0);
-        }
-        
-        .instructions {
-            margin-top: 30px;
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-        }
-        
-        .instructions h2 {
-            color: #2c3e50;
-            margin-bottom: 10px;
-        }
-        
-        .instructions p {
-            margin-bottom: 10px;
-            line-height: 1.5;
-        }
-        
-        @media (max-width: 768px) {
-            .player-info {
-                flex-direction: column;
-                align-items: center;
-            }
-            
-            input {
-                width: 100%;
-                margin-bottom: 10px;
-            }
+        .banana-btn:hover {
+            background: #FFC400;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Многопользовательский кликер</h1>
-            <p>Нажимай на красную кнопку, зарабатывай очки и соревнуйся с другими игроками!</p>
-        </header>
-        
-        <div class="game-container">
-            <div class="click-area" id="clickArea">
-                <div class="click-text">КЛИКАЙ!</div>
-            </div>
-            
-            <div class="score-container">
-                <h2>Твой счет:</h2>
-                <div class="score" id="score">0</div>
-            </div>
-            
-            <div class="player-info">
-                <input type="text" id="playerName" placeholder="Введите ваше имя">
-                <button id="saveScore">Сохранить результат</button>
-            </div>
-        </div>
-        
-        <div class="leaderboard">
-            <h2>Таблица лидеров</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Место</th>
-                        <th>Имя</th>
-                        <th>Счет</th>
-                        <th>Последнее обновление</th>
-                    </tr>
-                </thead>
-                <tbody id="leaderboardBody">
-                    <tr>
-                        <td colspan="4">Загрузка данных...</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        
-        <div class="instructions">
-            <h2>Как играть?</h2>
-            <p>1. Введите свое имя в поле выше</p>
-            <p>2. Кликайте по красной кнопке чтобы увеличивать свой счет</p>
-            <p>3. Нажмите "Сохранить результат" чтобы отправить свой счет в таблицу лидеров</p>
-            <p>4. Таблица лидеров обновляется автоматически каждые 10 секунд</p>
-            <p>💡 <strong>Совет:</strong> Вы можете сохранять свой результат несколько раз - в таблице будет отображаться ваш максимальный достигнутый счет!</p>
-        </div>
-    </div>
-    
-    <div class="notification" id="notification">Результат успешно сохранен!</div>
 
-    <!-- Подключаем библиотеку Supabase -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <h2>Управление пользователями и бананами</h2>
+    
+    <button onclick="addUser()">Добавить пользователя</button>
+    <button onclick="getUsers()">Получить пользователей</button>
+    
+    <div id="usersList"></div>
+    <div id="result" style="margin-top: 20px; padding: 10px; background: #f0f0f0; border-radius: 5px;"></div>
+
     <script>
-        // Инициализация Supabase (замените на свои значения)
-        const SUPABASE_URL = 'https://gdfkvpufqnkwwdtvavbh.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdkZmt2cHVmcW5rd3dkdHZhdmJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTczOTk0NDQsImV4cCI6MjA3Mjk3NTQ0NH0.ME2hehhEiy1tqwVCh9Xcu01ACKPp6IjecXExr4JXkR4';
-        
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        
-        // Элементы DOM
-        const clickArea = document.getElementById('clickArea');
-        const scoreElement = document.getElementById('score');
-        const playerNameInput = document.getElementById('playerName');
-        const saveScoreButton = document.getElementById('saveScore');
-        const leaderboardBody = document.getElementById('leaderboardBody');
-        const notification = document.getElementById('notification');
-        
-        // Игровые переменные
-        let score = 0;
-        let playerName = '';
-        
-        // Обработчик клика по кнопке
-        clickArea.addEventListener('click', () => {
-            score++;
-            scoreElement.textContent = score;
-        });
-        
-        // Сохранение результата
-        saveScoreButton.addEventListener('click', async () => {
-            playerName = playerNameInput.value.trim();
+        // Настройка подключения к Supabase
+        const supabaseUrl = 'https://gdfkvpufqnkwwdtvavbh.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdkZmt2cHVmcW5rd3dkdHZhdmJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTczOTk0NDQsImV4cCI6MjA3Mjk3NTQ0NH0.ME2hehhEiy1tqwVCh9Xcu01ACKPp6IjecXExr4JXkR4';
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        // Функция добавления пользователя (БЕЗ boolean полей)
+        async function addUser() {
+            const names = ['Иван', 'Мария', 'Петр', 'Анна', 'Сергей'];
+            const randomName = names[Math.floor(Math.random() * names.length)];
             
-            if (!playerName) {
-                showNotification('Пожалуйста, введите имя');
+            // Вставляем только те поля, которые точно есть в таблице
+            const userData = { 
+                name: randomName + ' ' + 'Бананов', 
+                email: randomName.toLowerCase() + '@banana.ru',
+                bananas: Math.floor(Math.random() * 10)
+            };
+            
+            const { data, error } = await supabase
+                .from('users')
+                .insert([userData]);
+            
+            if (error) {
+                showResult('Ошибка: ' + error.message);
+                console.error('Детали ошибки:', error);
+            } else {
+                showResult('Пользователь добавлен с бананами!');
+                getUsers();
+            }
+        }
+
+        // Функция получения пользователей
+        async function getUsers() {
+            const { data, error } = await supabase
+                .from('users')
+                .select('*')
+                .order('bananas', { ascending: false });
+            
+            if (error) {
+                showResult('Ошибка: ' + error.message);
+            } else {
+                displayUsers(data);
+            }
+        }
+
+        // Функция обновления ТОЛЬКО бананов
+        async function updateBananas(userId, currentBananas) {
+            const newBananas = currentBananas + 1;
+            
+            // Обновляем только поле bananas
+            const { data, error } = await supabase
+                .from('users')
+                .update({ bananas: newBananas })
+                .eq('id', userId);
+            
+            if (error) {
+                showResult('Ошибка обновления: ' + error.message);
+                console.error('Ошибка обновления:', error);
+            } else {
+                showResult('🍌 +1 банан! Теперь: ' + newBananas);
+                getUsers();
+            }
+        }
+
+        // Функция отображения пользователей
+        function displayUsers(users) {
+            const usersList = document.getElementById('usersList');
+            
+            if (!users || users.length === 0) {
+                usersList.innerHTML = '<p>Пользователей нет</p>';
                 return;
             }
             
-            try {
-                const { data, error } = await supabase
-                    .from('clicker_scores')
-                    .upsert([
-                        { 
-                            player_name: playerName, 
-                            score: score,
-                            updated_at: new Date().toISOString()
-                        }
-                    ], { 
-                        onConflict: 'player_name', 
-                        ignoreDuplicates: false,
-                        returning: 'minimal'
-                    });
-                
-                if (error) {
-                    console.error('Ошибка сохранения:', error);
-                    showNotification('Ошибка сохранения результата');
-                } else {
-                    showNotification('Результат успешно сохранен!');
-                    loadLeaderboard(); // Перезагружаем таблицу лидеров
-                }
-            } catch (err) {
-                console.error('Исключение при сохранении:', err);
-                showNotification('Ошибка сохранения результата');
-            }
-        });
-        
-        // Загрузка таблицы лидеров
-        async function loadLeaderboard() {
-            try {
-                const { data, error } = await supabase
-                    .from('clicker_scores')
-                    .select('*')
-                    .order('score', { ascending: false })
-                    .limit(10);
-                
-                if (error) {
-                    console.error('Ошибка загрузки данных:', error);
-                    return;
-                }
-                
-                // Очищаем таблицу
-                leaderboardBody.innerHTML = '';
-                
-                // Заполняем таблицу данными
-                if (data && data.length > 0) {
-                    data.forEach((player, index) => {
-                        const row = document.createElement('tr');
-                        
-                        const placeCell = document.createElement('td');
-                        placeCell.textContent = index + 1;
-                        
-                        const nameCell = document.createElement('td');
-                        nameCell.textContent = player.player_name;
-                        
-                        const scoreCell = document.createElement('td');
-                        scoreCell.textContent = player.score;
-                        
-                        const dateCell = document.createElement('td');
-                        dateCell.textContent = new Date(player.updated_at).toLocaleString('ru-RU');
-                        
-                        row.appendChild(placeCell);
-                        row.appendChild(nameCell);
-                        row.appendChild(scoreCell);
-                        row.appendChild(dateCell);
-                        
-                        leaderboardBody.appendChild(row);
-                    });
-                } else {
-                    leaderboardBody.innerHTML = '<tr><td colspan="4">Нет данных</td></tr>';
-                }
-            } catch (err) {
-                console.error('Исключение при загрузке таблицы лидеров:', err);
-            }
-        }
-        
-        // Функция показа уведомления
-        function showNotification(message) {
-            notification.textContent = message;
-            notification.classList.add('show');
+            usersList.innerHTML = '<h3>Список пользователей:</h3>';
             
+            users.forEach(user => {
+                const userDiv = document.createElement('div');
+                userDiv.className = 'user-item';
+                
+                // Показываем только основные поля
+                userDiv.innerHTML = `
+                    <strong>${user.name || 'Без имени'}</strong> 
+                    <br>Email: ${user.email || 'Нет email'}
+                    <br>Бананы: ${user.bananas !== undefined ? user.bananas : 0} 🍌
+                    <br>ID: ${user.id ? user.id.substring(0, 8) + '...' : 'Нет ID'}
+                    <br>
+                    <button class="banana-btn" onclick="updateBananas('${user.id}', ${user.bananas !== undefined ? user.bananas : 0})">
+                        Добавить банан
+                    </button>
+                `;
+                usersList.appendChild(userDiv);
+            });
+        }
+
+        // Функция показа сообщений
+        function showResult(message) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = message;
             setTimeout(() => {
-                notification.classList.remove('show');
+                resultDiv.innerHTML = '';
             }, 3000);
         }
-        
-        // Загружаем таблицу лидеров при старте
-        loadLeaderboard();
-        
-        // Обновляем таблицу лидеров каждые 10 секунд
-        setInterval(loadLeaderboard, 10000);
-        
-        // Для демонстрации, если Supabase не настроен
-        const useDemoMode = !SUPABASE_URL || SUPABASE_URL.includes('your-project') || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.includes('your-anon-key');
-        
-        if (useDemoMode) {
-            document.querySelector('.instructions p:last-child').innerHTML = 
-                '⚠️ <strong>Режим демонстрации:</strong> Для работы с реальной базой данных необходимо настроить Supabase. Инструкция ниже.';
-            
-            // Демо-данные для таблицы лидеров
-            const demoData = [
-                { player_name: 'Алексей', score: 1250, updated_at: new Date().toISOString() },
-                { player_name: 'Мария', score: 980, updated_at: new Date().toISOString() },
-                { player_name: 'Иван', score: 765, updated_at: new Date().toISOString() },
-                { player_name: 'Ольга', score: 620, updated_at: new Date().toISOString() },
-                { player_name: 'Дмитрий', score: 510, updated_at: new Date().toISOString() }
-            ];
-            
-            // Функция для демо-режима
-            const originalLoadLeaderboard = loadLeaderboard;
-            loadLeaderboard = function() {
-                leaderboardBody.innerHTML = '';
-                
-                demoData.sort((a, b) => b.score - a.score);
-                
-                demoData.forEach((player, index) => {
-                    const row = document.createElement('tr');
-                    
-                    const placeCell = document.createElement('td');
-                    placeCell.textContent = index + 1;
-                    
-                    const nameCell = document.createElement('td');
-                    nameCell.textContent = player.player_name;
-                    
-                    const scoreCell = document.createElement('td');
-                    scoreCell.textContent = player.score;
-                    
-                    const dateCell = document.createElement('td');
-                    dateCell.textContent = new Date(player.updated_at).toLocaleString('ru-RU');
-                    
-                    row.appendChild(placeCell);
-                    row.appendChild(nameCell);
-                    row.appendChild(scoreCell);
-                    row.appendChild(dateCell);
-                    
-                    leaderboardBody.appendChild(row);
-                });
-            };
-            
-            // Переопределяем сохранение для демо-режима
-            const originalSaveClick = saveScoreButton.onclick;
-            saveScoreButton.onclick = function() {
-                playerName = playerNameInput.value.trim();
-                
-                if (!playerName) {
-                    showNotification('Пожалуйста, введите имя');
-                    return;
-                }
-                
-                // Добавляем или обновляем результат в демо-данных
-                const existingPlayerIndex = demoData.findIndex(p => p.player_name === playerName);
-                
-                if (existingPlayerIndex !== -1) {
-                    if (score > demoData[existingPlayerIndex].score) {
-                        demoData[existingPlayerIndex].score = score;
-                        demoData[existingPlayerIndex].updated_at = new Date().toISOString();
-                    }
-                } else {
-                    demoData.push({
-                        player_name: playerName,
-                        score: score,
-                        updated_at: new Date().toISOString()
-                    });
-                }
-                
-                showNotification('Результат сохранен (демо-режим)');
-                loadLeaderboard();
-            };
-            
-            loadLeaderboard();
-        }
+
+        // Загружаем пользователей при загрузке страницы
+        getUsers();
+
     </script>
+
 </body>
 </html>
