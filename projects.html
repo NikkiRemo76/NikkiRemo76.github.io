@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Геометрические формы</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000;
+        }
+        canvas {
+            display: block;
+        }
+        .overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            font-size: 28px;
+            text-align: center;
+            pointer-events: none;
+            z-index: 10;
+            text-shadow: 0 0 10px #0f0, 0 0 20px #0f0;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div class="overlay">ПОКА ЧТО НЕ СДЕЛАНО</div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const gl = canvas.getContext('webgl');
+        
+        if (!gl) {
+            alert('WebGL не поддерживается вашим браузером');
+        }
+
+        function resize() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            gl.viewport(0, 0, width, height);
+        }
+        
+        window.addEventListener('resize', resize);
+        resize();
+
+        const vertexShaderSource = `
+            attribute vec2 a_position;
+            varying vec2 v_uv;
+            void main() {
+                gl_Position = vec4(a_position, 0.0, 1.0);
+                v_uv = a_position * 0.5 + 0.5;
+            }
+        `;
+
+        const fragmentShaderSource = `
+            precision highp float;
+            uniform float iTime;
+            uniform vec3 iResolution;
+            varying vec2 v_uv;
+            
+            // Common parameters:
+            #define SHAPE_SIZE 0.06
+            #define BLUR 0.001
+            #define VERTICAL_TRAVEL 0.1
+            #define SPEED_TRAVEL 0.6
+            #define SPEED_ROTATION 1.0
+            #define ALPHA 0.7
+
+            // Colors
+            #define DARK_BLUE vec3(16.0/255.0,50.0/255.0,66.0/255.0)
+            #define LIGHT_BLUE vec3(34.0/255.0,76.0/255.0,114.0/255.0)
+            #define SHAPE_GRAY vec3(93.0/255.0,119.0/255.0,137.0/255.0)
+
+            // Only applies to the circle and square
+            #define INNER_CUTOUT_SCALE 0.7
+
+            // The taper-off point for the triangle to be equilateral
+            const float EQUILATERAL_HEIGHT = sqrt(pow(SHAPE_SIZE,2.0) - pow(SHAPE_SIZE/2.0,2.0)) - SHAPE_SIZE/2.0;
+
+            // Helper functions
+            float rand(vec2 co) {
+                return fract(sin(dot(co.xy, vec2(12.9898,78.233))) * 43758.5453);
+            }
+
+            vec2 N22(vec2 p) {
+                vec3 a = fract(p.xyx * vec3(123.34, 234.34, 345.65));
+                a += dot(a, a + 34.45);
+                return fract(vec2(a.x * a.y, a.y * a.z));
+            }
+
+            float map(float value, float min1, float max1, float min2, float max2) {
+                return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
+            }
+
+            mat2 rotate(float angle) {
+                return mat2(cos(angle), -sin(angle), sin(angle), cos(angle));
+            }
+
+            // Background gradient
+            vec3 background(vec2 uv) {
+                const float GRAD_START = 0.25, GRAD_STOP = 0.95;
+                return mix(LIGHT_BLUE, DARK_BLUE, smoothstep(GRAD_START, GRAD_STOP, uv.y));
+            }
+
+            // Solid helper shapes
+            float box(vec2 uv, float left, float right, float down, float up, float blur) {
+                return smoothstep(left, left + blur, uv.x) *
+                       smoothstep(right, right - blur, uv.x) *
+                       smoothstep(down, down + blur, uv.y) *
+                       smoothstep(up, up - blur, uv.y);
+            }
+
+            float box(vec2 uv, float lowerBound, float upperBound, float blur) {
+                return box(uv, lowerBound, upperBound, lowerBound, upperBound, blur);
+            }
+
+            float triangleSolid(vec2 uv, float size, float height, float blur) {
+                float sides = map(uv.y, -size/2.0, height, size/2.0, 0.0);
+                return box(uv, -sides, sides, -size/2.0, size/2.0, blur);    
+            }
+
+            // Main shapes
+            float circle(vec2 uv, float size, float blur, float alpha) {
+                float radius = size/2.0;
+                return alpha * (smoothstep(radius + blur, radius, length(uv)) - 
+                       smoothstep(INNER_CUTOUT_SCALE * radius + blur, INNER_CUTOUT_SCALE * radius, length(uv)));
+            }
+
+            float X(vec2 uv, float size, float blur, float alpha) {
+                float lower = -size/2.0, upper = size/2.0;
+                return alpha * (box(uv, lower, upper, lower/5.0, upper/5.0, blur) +
+                       box(uv, lower/5.0, upper/5.0, lower, upper, blur) -
+                       box(uv, lower/5.0, upper/5.0, blur));
+            }
+
+            float triangle(vec2 uv, float size, float height, float blur, float alpha) {
+                vec2 innerCoord = uv * 2.0;
+                const float BASE_SIZE = 0.05, SCALING_FACTOR = 0.01;
+                innerCoord.y += SHAPE_SIZE/BASE_SIZE * SCALING_FACTOR;
+                return alpha * (triangleSolid(uv, size, height, blur) -
+                       triangleSolid(innerCoord, size, height, blur));
+            }
+
+            float square(vec2 uv, float size, float blur, float alpha) {
+                return alpha * (box(uv, -size/2.0, size/2.0, blur) -
+                       box(uv, -INNER_CUTOUT_SCALE * size/2.0, INNER_CUTOUT_SCALE * size/2.0, blur));
+            }
+
+            vec2 sway(vec2 uv, vec2 start, float vertTravel, float timeShift) {
+                return vec2(uv.x - start.x, uv.y - start.y - vertTravel * sin(SPEED_TRAVEL * iTime - timeShift));
+            }
+
+            void main() {
+                vec2 uv = v_uv;
+                float aspect = iResolution.x / iResolution.y;
+                uv.x *= aspect;
+                
+                vec3 col = background(uv);
+                
+                // Используем упрощенную версию без сложной сетки
+                #define SHAPE_AMOUNT 50.0
+                
+                for(float i = 0.0; i < SHAPE_AMOUNT; i++) {
+                    vec2 seed = vec2(i, i);
+                    vec2 cord = vec2(rand(seed), rand(-0.5 * seed));
+                    cord.x *= aspect;
+                    vec2 xy = sway(uv, cord, VERTICAL_TRAVEL, i);
+                    
+                    int shapeType = int(mod(i, 4.0));
+                    
+                    if (shapeType == 0) {
+                        xy = xy * rotate(sin(SPEED_ROTATION * iTime - i));
+                        col = mix(col, SHAPE_GRAY, X(xy, SHAPE_SIZE, BLUR, ALPHA));
+                    } else if (shapeType == 1) {
+                        col = mix(col, SHAPE_GRAY, circle(xy, SHAPE_SIZE, BLUR, ALPHA));
+                    } else if (shapeType == 2) {
+                        xy = xy * rotate(sin(SPEED_ROTATION * iTime - i));
+                        col = mix(col, SHAPE_GRAY, triangle(xy, SHAPE_SIZE, EQUILATERAL_HEIGHT, BLUR, ALPHA));
+                    } else {
+                        xy = xy * rotate(sin(SPEED_ROTATION * iTime - i));
+                        col = mix(col, SHAPE_GRAY, square(xy, SHAPE_SIZE, BLUR, ALPHA));
+                    }
+                }
+                
+                gl_FragColor = vec4(col, 1.0);
+            }
+        `;
+
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error(gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            
+            return shader;
+        }
+
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+
+        const program = gl.createProgram();
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+        
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            console.error(gl.getProgramInfoLog(program));
+        }
+
+        gl.useProgram(program);
+
+        const positionAttributeLocation = gl.getAttribLocation(program, "a_position");
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        
+        const positions = [
+            -1, -1,
+             1, -1,
+            -1,  1,
+             1,  1
+        ];
+        
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+        const vao = gl.createVertexArray();
+        gl.bindVertexArray(vao);
+        
+        gl.enableVertexAttribArray(positionAttributeLocation);
+        gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
+
+        const iTimeLocation = gl.getUniformLocation(program, "iTime");
+        const iResolutionLocation = gl.getUniformLocation(program, "iResolution");
+
+        function render(time) {
+            time *= 0.001;
+            
+            gl.uniform1f(iTimeLocation, time);
+            gl.uniform3f(iResolutionLocation, canvas.width, canvas.height, 1.0);
+            
+            gl.clearColor(0, 0, 0, 1);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            
+            requestAnimationFrame(render);
+        }
+        
+        requestAnimationFrame(render);
+    </script>
+</body>
+</html>
