@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head> 
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NikkiRemo Page :3</title>
     <link rel="icon" type="image/x-icon" href="assets/icon.ico">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
         @font-face {
             font-family: 'BordersDivideButHeartsShall';
@@ -101,7 +102,7 @@
         }
 
         .left-image img {
-            max-width: 180px;
+            max-width: 500px;
             height: auto;
         }
 
@@ -125,6 +126,38 @@
             width: 40px;
             height: 40px;
             filter: drop-shadow(0 0 5px rgba(255, 105, 180, 0.8));
+        }
+
+        /* Стили для кнопок внизу */
+        .bottom-buttons {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 40px;
+            z-index: 2;
+        }
+
+        .nav-button {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            filter: drop-shadow(0 0 8px rgba(255, 105, 180, 0.6));
+        }
+
+        .nav-button img {
+            width: 120px;
+            height: auto;
+            border-radius: 15px;
+        }
+
+        .nav-button:hover {
+            transform: translateY(-5px) scale(1.1);
+            filter: drop-shadow(0 0 12px rgba(255, 105, 180, 0.9));
+        }
+
+        .nav-button:active {
+            transform: translateY(0) scale(0.95);
         }
 
         @keyframes float {
@@ -194,6 +227,16 @@
     
     <div class="slider-container">
         <div class="slider"></div>
+    </div>
+    
+    <!-- Кнопки навигации внизу -->
+    <div class="bottom-buttons">
+        <div class="nav-button" id="friendsButton">
+            <img src="assets/mainPage/buttons/friends.png" alt="Обо мне">
+        </div>
+        <div class="nav-button" id="artsButton">
+            <img src="assets/mainPage/arts.png" alt="Галерея">
+        </div>
     </div>
     
     <div class="content">
@@ -341,7 +384,7 @@
                 // Добавляем изображение в частицу
                 particle.appendChild(img);
                 
-                // Устанавливаем начальную позицию
+                // Устанавливаем начальную позицию (место клика)
                 particle.style.left = x + 'px';
                 particle.style.top = y + 'px';
                 
@@ -371,14 +414,21 @@
         
         // Обработчик клика по изображению
         document.getElementById('nikkiImage').addEventListener('click', function(e) {
-            //alert('Привет! Это Nikki! ❤️');
-            // Получаем координаты клика
-            const rect = this.getBoundingClientRect();
-            const x = rect.left + rect.width / 2;
-            const y = rect.top + rect.height / 2;
+            // Получаем координаты клика относительно окна браузера
+            const x = e.clientX;
+            const y = e.clientY;
             
-            // Создаем частицы
+            // Создаем частицы из места клика
             createParticles(x, y, 20);
+        });
+        
+        // Обработчики для кнопок навигации
+        document.getElementById('friendsButton').addEventListener('click', function() {
+            window.location.href = 'friends.html';
+        });
+        
+        document.getElementById('artsButton').addEventListener('click', function() {
+            window.location.href = 'arts.html';
         });
         
         // Анимация
