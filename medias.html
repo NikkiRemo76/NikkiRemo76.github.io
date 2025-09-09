@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <titleМедиа :3</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+        
+        #shader-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="shader-canvas"></canvas>
+
+    <script>
+        // Подготовка canvas и WebGL контекста
+        const canvas = document.getElementById('shader-canvas');
+        const gl = canvas.getContext('webgl');
+        
+        if (!gl) {
+            alert('Ваш браузер не поддерживает WebGL.');
+        }
+        
+        // Установка размеров canvas
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        }
+        
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        
+        // Вершинный шейдер (просто отрисовывает прямоугольник на весь экран)
+        const vertexShaderSource = `
+            attribute vec2 a_position;
+            void main() {
+                gl_Position = vec4(a_position, 0.0, 1.0);
+            }
+        `;
+        
+        // Фрагментный шейдер (ваш код)
+        const fragmentShaderSource = `
+            precision highp float;
+            
+            uniform float iTime;
+            uniform vec2 iResolution;
+            
+            #define t iTime*2.
+            #define SIZE 30.
+            
+            #define col1 vec3(176, 2, 54)/255.
+            #define col2 vec3(97, 14, 29)/255.
+            
+            vec2 ran(vec2 uv) {
+                uv *= vec2(dot(uv,vec2(127.1,311.7)),dot(uv,vec2(227.1,521.7)) );
+                return 1.0-fract(tan(cos(uv)*123.6)*3533.3)*fract(tan(cos(uv)*123.6)*3533.3);
+            }
+            
+            vec2 pt(vec2 id) {
+                return sin(t*(ran(id+.5)-0.5)+ran(id-20.1)*8.0)*0.5;
+            }
+            
+            void main() {
+                vec2 uv = (gl_FragCoord.xy-.5*iResolution.xy)/iResolution.x;
+                vec2 off = iTime/vec2(50.,30.);
+                uv += off;
+                uv *= SIZE;
+                
+                vec2 gv = fract(uv)-.5;
+                vec2 id = floor(uv);
+                
+                float mindist = 1e9;
+                vec2 vorv;
+                for(float i=-1.;i<=1.;i++) {
+                    for(float j=-1.;j<=1.;j++) { 
+                        vec2 offv = vec2(i,j);
+                        float dist = length(gv+pt(id+offv)-offv);
+                        if(dist<mindist){
+                            mindist = dist;
+                            vorv = (id+pt(id+offv)+offv)/SIZE-off;
+                        }
+                    }
+                }
+                
+                vec3 col = mix(col1,col2,clamp(vorv.x*2.2+vorv.y,-1.,1.)*0.5+0.5);
+                
+                gl_FragColor = vec4(col,1.0);
+            }
+        `;
+        
+        // Компиляция шейдера
+        function compileShader(gl, source, type) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error('Ошибка компиляции шейдера:', gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            
+            return shader;
+        }
+        
+        const vertexShader = compileShader(gl, vertexShaderSource, gl.VERTEX_SHADER);
+        const fragmentShader = compileShader(gl, fragmentShaderSource, gl.FRAGMENT_SHADER);
+        
+        // Создание программы шейдеров
+        const program = gl.createProgram();
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+        
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            console.error('Ошибка линковки программы:', gl.getProgramInfoLog(program));
+        }
+        
+        gl.useProgram(program);
+        
+        // Создание буфера вершин (прямоугольник на весь экран)
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        const positions = [
+            -1.0, -1.0,
+            1.0, -1.0,
+            -1.0, 1.0,
+            1.0, 1.0,
+        ];
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+        
+        const positionAttributeLocation = gl.getAttribLocation(program, "a_position");
+        gl.enableVertexAttribArray(positionAttributeLocation);
+        gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
+        
+        // Получение uniform-переменных
+        const iTimeLocation = gl.getUniformLocation(program, "iTime");
+        const iResolutionLocation = gl.getUniformLocation(program, "iResolution");
+        
+        // Анимация
+        let startTime = Date.now();
+        
+        function render() {
+            const currentTime = (Date.now() - startTime) / 1000;
+            
+            gl.uniform1f(iTimeLocation, currentTime);
+            gl.uniform2f(iResolutionLocation, canvas.width, canvas.height);
+            
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            
+            requestAnimationFrame(render);
+        }
+        
+        render();
+    </script>
+</body>
+</html>
