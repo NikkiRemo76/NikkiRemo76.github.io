@@ -244,6 +244,9 @@
         <div class="nav-button" id="mediaButton">
             <img src="assets/mainPage/media.png" alt="Медиа">
         </div>
+        <div class="nav-button" id="projectsButton">
+            <img src="assets/mainPage/projects.png" alt="Проекты">
+        </div>
     </div>
     
     <div class="content">
@@ -442,6 +445,9 @@
             window.location.href = 'medias.html';
         });
         
+        document.getElementById('projectsButton').addEventListener('click', function() {
+            window.location.href = 'projects.html';
+        });
         // Анимация
         let startTime = Date.now();
         
