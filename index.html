@@ -56,17 +56,28 @@
             font-size: 36px;
             color: #FFD5F1;
             text-shadow: 2px 2px 4px rgb(0, 0, 0);
+            line-height: 1.5;
         }
 
-        .slider {
+        .slider-container {
             position: fixed;
             top: 0;
             right: 0;
             width: 200px;
             height: 100%;
-            background: url('assets/mainPage/slider.png') no-repeat center center;
-            background-size: cover;
+            overflow: hidden;
             z-index: 1;
+        }
+
+        .slider {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 200px;
+            height: 200%; /* Удвоенная высота для бесконечного эффекта */
+            background: url('assets/mainPage/slider.png') repeat-y center top;
+            background-size: 200px auto; /* Сохраняем оригинальный размер */
+            animation: slideDown 25s linear infinite;
         }
 
         .content {
@@ -75,6 +86,44 @@
             z-index: 0;
             margin-right: 200px;
             box-sizing: border-box;
+        }
+
+        /* Стили для левого изображения */
+        .left-image {
+            position: fixed;
+            top: 50%;
+            left: 30px;
+            transform: translateY(-50%);
+            z-index: 2;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .left-image img {
+            max-width: 180px;
+            height: auto;
+        }
+
+        .left-image:hover {
+            transform: translateY(-50%) scale(1.05);
+        }
+
+        .left-image:active {
+            transform: translateY(-50%) scale(0.95);
+        }
+
+        /* Стили для частиц */
+        .particle {
+            position: fixed;
+            pointer-events: none;
+            z-index: 10;
+            animation: particleFloat 2s ease-out forwards;
+        }
+
+        .particle img {
+            width: 40px;
+            height: 40px;
+            filter: drop-shadow(0 0 5px rgba(255, 105, 180, 0.8));
         }
 
         @keyframes float {
@@ -103,21 +152,48 @@
                 transform: translate(-50%, -50%);
             }
         }
+
+        @keyframes slideDown {
+            0% {
+                transform: translateY(-50%);
+            }
+            100% {
+                transform: translateY(0%);
+            }
+        }
+
+        @keyframes particleFloat {
+            0% {
+                opacity: 1;
+                transform: translate(0, 0) scale(0.8) rotate(0deg);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(var(--tx), var(--ty)) scale(1.2) rotate(var(--rot));
+            }
+        }
     </style>
 </head>
 <body>
     <canvas id="shader-canvas"></canvas>
+    
+    <!-- Добавлено кликабельное изображение слева -->
+    <div class="left-image" id="nikkiImage">
+        <img src="assets/mainPage/nikki.png" alt="Nikki" />
+    </div>
     
     <div class="top-image">
         <img src="assets/mainPage/hai.png" alt="hai" />
     </div>
     
     <div class="text-container">
-        <div class="pink-text">ПРИВЕЕЕТ!!!<br>Добро Пожаловать на страницу NikkiRemo
+        <div class="pink-text">ПРИВЕЕЕТ!!!<br>Добро Пожаловать на страницу NikkiRemo<br>Вы можете найти немного обо мне
         </div>
     </div>
     
-    <div class="slider"></div>
+    <div class="slider-container">
+        <div class="slider"></div>
+    </div>
     
     <div class="content">
         <!-- Пространство для прокрутки -->
@@ -237,6 +313,71 @@
         // Получение uniform-локаций
         const timeUniformLocation = gl.getUniformLocation(program, "iTime");
         const resolutionUniformLocation = gl.getUniformLocation(program, "iResolution");
+        
+        // Массив с путями к изображениям для частиц
+        const particleImages = [
+            'assets/mainPage/harts/1.png',
+            'assets/mainPage/harts/2.png',
+            'assets/mainPage/harts/3.png',
+            'assets/mainPage/harts/4.png'
+        ];
+        
+        // Функция для создания частиц
+        function createParticles(x, y, count = 15) {
+            for (let i = 0; i < count; i++) {
+                // Создаем элемент частицы
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                
+                // Выбираем случайное изображение
+                const randomImage = particleImages[Math.floor(Math.random() * particleImages.length)];
+                
+                // Создаем изображение
+                const img = document.createElement('img');
+                img.src = randomImage;
+                img.alt = 'Particle';
+                
+                // Добавляем изображение в частицу
+                particle.appendChild(img);
+                
+                // Устанавливаем начальную позицию
+                particle.style.left = x + 'px';
+                particle.style.top = y + 'px';
+                
+                // Генерируем случайные параметры для анимации
+                const angle = Math.random() * Math.PI * 2;
+                const distance = 100 + Math.random() * 150;
+                const tx = Math.cos(angle) * distance;
+                const ty = Math.sin(angle) * distance;
+                const rotation = (Math.random() - 0.5) * 360;
+                
+                // Устанавливаем CSS переменные
+                particle.style.setProperty('--tx', tx + 'px');
+                particle.style.setProperty('--ty', ty + 'px');
+                particle.style.setProperty('--rot', rotation + 'deg');
+                
+                // Добавляем частицу на страницу
+                document.body.appendChild(particle);
+                
+                // Удаляем частицу после завершения анимации
+                setTimeout(() => {
+                    if (particle.parentNode) {
+                        particle.parentNode.removeChild(particle);
+                    }
+                }, 2000);
+            }
+        }
+        
+        // Обработчик клика по изображению
+        document.getElementById('nikkiImage').addEventListener('click', function(e) {
+            // Получаем координаты клика
+            const rect = this.getBoundingClientRect();
+            const x = rect.left + rect.width / 2;
+            const y = rect.top + rect.height / 2;
+            
+            // Создаем частицы
+            createParticles(x, y, 20);
+        });
         
         // Анимация
         let startTime = Date.now();
