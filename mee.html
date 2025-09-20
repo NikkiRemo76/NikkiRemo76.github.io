@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Обо мне (НЕ ДОДЕЛАННО)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+
+        #shader-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .image-wrapper {
+            max-width: 90%;
+            max-height: 90vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .responsive-image {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+        }
+
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 24px;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="shader-canvas"></canvas>
+    <div class="container">
+        <div class="image-wrapper">
+            <img src="assets/meePage/page.png" alt="Описание картинки" class="responsive-image">
+        </div>
+    </div>
+
+    <script>
+        // Загрузка изображения с обработкой ошибок
+        const img = document.querySelector('.responsive-image');
+        img.onerror = function() {
+            console.error('Ошибка загрузки изображения. Убедитесь, что файл существует и путь указан правильно.');
+            // Создаем заглушку если изображение не загрузилось
+            const canvas = document.createElement('canvas');
+            canvas.width = 400;
+            canvas.height = 300;
+            const ctx = canvas.getContext('2d');
+            
+            // Рисуем placeholder
+            ctx.fillStyle = '#ddd';
+            ctx.fillRect(0, 0, 400, 300);
+            ctx.fillStyle = '#999';
+            ctx.font = '20px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Изображение не найдено', 200, 150);
+            ctx.font = '14px Arial';
+            ctx.fillText('Замените your-image.jpg на путь к вашему изображению', 200, 180);
+            
+            img.src = canvas.toDataURL();
+        };
+
+        // Шейдерный код
+        const shaderCode = `
+        void mainImage( out vec4 fragColor, in vec2 fragCoord )
+        {
+            // Normalized pixel coordinates (from 0 to 1)
+            vec2 uv  = ( fragCoord -.5* iResolution.xy ) / iResolution.y;
+            float z =0.2;
+             
+           
+            if(sqrt(uv.x*uv.x +uv.y*uv.y) > 0.1){
+            uv.y += sign(sin(uv.x*100.))/30.* sin(uv.x*uv.x +uv.y*uv.y) ;//*sin(iTime*2.);
+            uv.x += sign(cos(uv.y*100.))/30. * sin(uv.x*uv.x +uv.y*uv.y);//*cos(iTime*2.);
+            /* Some Nice Effect */
+            }
+            
+            float p= 0.2  ;
+            float q= 0.229 - (1.+cos(iTime*2. - exp(length(uv)*2.) ))/45.;
+            float k= 6.;
+            
+            float colc = mod(length(uv )  -  iTime/k ,p) ;
+            
+            float col1 = mod(length(uv + vec2(0.1,0.))  -  iTime/k ,p) ;
+            float col2 = mod(length(uv + vec2(-0.1,0.)) -  iTime/k ,p);
+            
+            float col3 = mod(length(uv + vec2(0,-0.1))  -  iTime/k ,p);
+            float col4 = mod(length(uv + vec2(0,0.1))   -  iTime/k ,p);
+            
+            float colo = mix(col1,col2,0.5);
+            float coli = mix(col3,col4,0.5);
+            float col  = mix(colo,coli,0.5);
+            
+            float aa = (colo + coli) /2.;
+            
+            col = clamp(.8,.9, smoothstep(q,q-0.15,col));
+           
+            float b  =  1.-col;
+            
+            float ring =  smoothstep(1.,0.8,log( (q*10.59) ))+q;
+
+            ring = smoothstep(0.2,0.1,1.-ring);
+          
+            fragColor = 1.5*vec4( vec3(0.9,0.2,0.6) * vec3( b+aa ,0.1,aa+col*b*ring )   ,1.0);
+        }
+        `;
+
+        // Инициализация WebGL и шейдера
+        function initShader() {
+            const canvas = document.getElementById('shader-canvas');
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            
+            if (!gl) {
+                console.error('WebGL не поддерживается вашим браузером');
+                return;
+            }
+
+            // Установка размера canvas
+            function resizeCanvas() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                gl.viewport(0, 0, canvas.width, canvas.height);
+            }
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            // Создание шейдерной программы
+            const vertexShaderSource = `
+                attribute vec2 aPosition;
+                void main() {
+                    gl_Position = vec4(aPosition, 0.0, 1.0);
+                }
+            `;
+
+            const fragmentShaderSource = `
+                precision highp float;
+                uniform vec2 iResolution;
+                uniform float iTime;
+                ${shaderCode}
+
+                void main() {
+                    mainImage(gl_FragColor, gl_FragCoord.xy);
+                }
+            `;
+
+            // Компиляция шейдеров
+            function compileShader(source, type) {
+                const shader = gl.createShader(type);
+                gl.shaderSource(shader, source);
+                gl.compileShader(shader);
+                
+                if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                    console.error('Ошибка компиляции шейдера:', gl.getShaderInfoLog(shader));
+                    gl.deleteShader(shader);
+                    return null;
+                }
+                return shader;
+            }
+
+            const vertexShader = compileShader(vertexShaderSource, gl.VERTEX_SHADER);
+            const fragmentShader = compileShader(fragmentShaderSource, gl.FRAGMENT_SHADER);
+
+            const program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error('Ошибка линковки программы:', gl.getProgramInfoLog(program));
+                return;
+            }
+
+            gl.useProgram(program);
+
+            // Создание буфера вершин (простой квадрат на весь экран)
+            const vertices = new Float32Array([
+                -1.0, -1.0,
+                1.0, -1.0,
+                -1.0, 1.0,
+                1.0, 1.0
+            ]);
+
+            const vertexBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+            const positionAttributeLocation = gl.getAttribLocation(program, "aPosition");
+            gl.enableVertexAttribArray(positionAttributeLocation);
+            gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
+
+            // Получение uniform-локаций
+            const iResolutionLocation = gl.getUniformLocation(program, "iResolution");
+            const iTimeLocation = gl.getUniformLocation(program, "iTime");
+
+            // Анимация
+            let startTime = Date.now() / 1000;
+            
+            function animate() {
+                const currentTime = Date.now() / 1000 - startTime;
+                
+                gl.uniform2f(iResolutionLocation, canvas.width, canvas.height);
+                gl.uniform1f(iTimeLocation, currentTime);
+                
+                gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+                requestAnimationFrame(animate);
+            }
+            
+            animate();
+        }
+
+        // Запуск после загрузки страницы
+        window.addEventListener('load', function() {
+            // Задержка для инициализации шейдера (может потребоваться на слабых устройствах)
+            setTimeout(initShader, 100);
+        });
+    </script>
+</body>
+</html>
